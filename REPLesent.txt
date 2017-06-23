@@ -1,0 +1,204 @@
+| \g Higher order functions
+--
+| (or how to have functions as parameters)
+
+
+
+We're going to be talking about higher order functions for collections (Array, Lists, etc)
+---
+But first, let's recap a little and talk about:
+--
+
+| \gAlgebraic data types
+
+Def: An algebraic data type is a type that consists of sums and products (different constructors
+and constructors with multiple fields).
+
+It's about defining the structure of your data, no behaviour at all.
+--
+In haskell, for example:
+
+data \yBool\s = False | True
+
+data \ySeason\s = Summer | Winter | Fall | Spring
+
+data \yShape\s = Circle Float Float Float | Rectangle Float Float Float Float
+
+---
+| \g ADT in Scala
+In Scala, it has a little more boiler plate, given it's a hybrid OO/Functional language but the 
+same ADTs are represented as:
+
+```
+sealed trait Bool
+case object True extends Bool
+case object False extends Bool
+
+sealed trait Shape
+case class Circle(x: Float, y: Float, r: Float) extends Shape
+case class Rectangle(x1: Float, y1: Float, x2: Float, y2: Float) extends Shape
+```
+---
+We can now define functions for our newly defined ADT:
+
+```
+def surface(s: Shape): Double = s match {
+  case Circle(x, y, r) => Math.PI * Math.pow(r, 2)
+  case Rectangle(x1, y1, x2, y2) => Math.abs(x2 - x1) * Math.abs(y2 - y1)
+}
+```
+---
+| \g Recursive ADT
+
+These ADTs are defined recursively (in terms of themselves). The most common one, being Lists.
+Let's see an example:
+
+```
+sealed trait List[+A]
+case object Empty extends List[Nothing]
+case class Cons[A](head: A, tail: List[A]) extends List[A]
+```
+
+Which means that a list of A (whatever A is) is either Empty, representing a list with no 
+elements, or a Cons of a A and another list of As. A Cons represents a list whose first element is 
+head and whose second and subsequent elements are the elements of the tail list of As. Here A may 
+stand for any type — for example, if A is “integer” then the definition says that a list of 
+integers is either empty or a Cons of an integer and another list of integers.
+---
+Let's define a pretty print so it's easier to read
+
+
+```
+def prettyPrint[A](l: List[A]): String = {
+  def pp(l: List[A]): String = l match {
+    case Empty => ""
+    case Cons(x, xs) => x.toString + ", " + pp(xs)
+  }
+  "List(" + pp(l).slice(0, pp(l).length - 2) + ")"
+}
+```
+---
+Let's now define a function to get all positive numbers from a List:
+
+```
+def filterPositive(list: List[Int]): List[Int] = {
+  list match {
+    case Empty => Empty
+    case Cons(x, xs) => {
+      if (x > 0) 
+        Cons(x, filterPositive(xs)) 
+      else filterPositive(xs)
+    }
+  }
+}
+```
+---
+And what about getting all the negative?
+
+```
+def filterNegative(list: List[Int]): List[Int] = {
+  list match {
+    case Empty => Empty
+    case Cons(x, xs) => {
+      if (x < 0) 
+        Cons(x, filterNegative(xs)) 
+      else filterNegative(xs)
+    }
+  }
+}
+```
+---
+... can be devided by 2?
+
+```
+def filterDivisibleBy2(list: List[Int]): List[Int] = {
+  list match {
+    case Empty => Empty
+    case Cons(x, xs) => {
+      if (x % 2 == 0)
+        Cons(x, filterDivisibleBy2(xs))
+      else filterDivisibleBy2(xs)
+    }
+  }
+}
+```
+---
+There's a repeated pattern here...
+
+
+
+| \g Higher order functions to the rescue!
+
+
+```
+def filter[A](f: Function[A, Boolean], list: List[A]): List[A] = {
+  list match {
+    case Empty => Empty
+    case Cons(x, xs) => {
+      if (f.apply(x))
+        Cons(x, filter(f, xs))
+      else filter(f, xs)
+    }
+  }
+}
+```
+
+filter is a function that receives a function f and a list as parameters
+---
+Let's redefine what we've been doing so far...
+
+```
+def isPositive: Function[Int, Boolean] = n => n > 0
+
+def isNegative: Function[Int, Boolean] = n => n < 0
+
+def isDivisibleBy2: Function[Int, Boolean] = n => n % 2 == 0
+
+```
+---
+| \gMap
+Def: Map is a function that receives a function f A -> B and a List[A] and returns a List[B] in
+which the function f is applied to every element of the list.
+--
+
+```
+def map[A, B](f: Function[A, B], list: List[A]): List[B] = {
+  list match {
+    case Empty => Empty
+    case Cons(x, xs) => Cons(f.apply(x), map(f, xs))
+  }
+}
+```
+
+Summing up, it "converts" a list depending the function it's given: transform a list of Strings
+into a list of integers that represent the length of each String
+---
+| \g Fold
+Def: is the way to "collapse" or "reduce" (or "fold") a list into a single value. Since the list
+is transformed into a single value, the fold function is a special type of transformer called a 
+consumer.
+--
+
+Example of usages: sum all the elements in a list of numbers, concatenate a list of strings into a 
+single string, check if a number bigger than 10 exists in a list of numbers or why not summing the 
+length of a list of strings
+--
+
+List(1,2,3).foldLeft (0) (_ + _)
+List("aa", "b", "nnn").foldLeft ("") (_ + _)
+List(1,2,9).foldLeft (false) ((x, y) => x || y > 10)
+List("aa", "b", "nnn").foldLeft (0) ((x,y) => y.size + x)
+---
+| \mQUESTIONS?!
+---
+| \gResources
+
+https://www.cs.kent.ac.uk/people/staff/dat/miranda/whyfp90.pdf
+
+http://learnyouahaskell.com/higher-order-functions
+
+http://docs.scala-lang.org/tutorials/tour/higher-order-functions.html
+
+http://tpolecat.github.io/presentations/algebraic_types.html#13
+
+https://github.com/marconilanna/REPLesent
